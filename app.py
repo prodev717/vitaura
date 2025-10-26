@@ -165,8 +165,6 @@ def analyze_issue():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# Additional endpoints for fetching complaints
-
 @app.route("/api/complaints/<email>", methods=["GET"])
 def get_user_complaints(email):
     try:
@@ -222,6 +220,38 @@ def get_all_complaints_admin():
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route("/api/admin/alert", methods=["GET"])
+def alert_admin():
+    try:
+        THRESHOLD = 5  
+        
+        result, error = db.alert_admin_more_than_threshold(THRESHOLD)
+        
+        if error:
+            return jsonify({"error": error}), 500
+        
+        if result['should_alert']:
+            return jsonify({
+                "success": True,
+                "alert": True,
+                "pending_count": result['pending_count'],
+                "threshold": THRESHOLD,
+                "message": f"⚠️ ALERT! {result['pending_count']} pending complaints exceed threshold of {THRESHOLD}",
+                "complaints": result['complaints']
+            })
+        else:
+            return jsonify({
+                "success": True,
+                "alert": False,
+                "pending_count": result['pending_count'],
+                "threshold": THRESHOLD,
+                "message": f"No alert. {result['pending_count']} pending complaints (threshold: {THRESHOLD})"
+            })
+            
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route("/api/admin/complaint/<int:serial_no>/status", methods=["PUT"])
 def update_complaint_status(serial_no):

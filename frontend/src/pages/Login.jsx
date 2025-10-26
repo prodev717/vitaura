@@ -410,7 +410,7 @@ export default function Login() {
           {/* Footer */}
           <div ref={footerRef} className="px-8 pb-8 text-center text-sm text-gray-600">
             Don't have an account?{' '}
-            <a href="#" className="text-blue-600 hover:text-blue-700 font-semibold transition-colors duration-200">
+            <a href="/signup" className="text-blue-600 hover:text-blue-700 font-semibold transition-colors duration-200">
               Sign Up Here
             </a>
           </div>

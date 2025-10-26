@@ -128,7 +128,6 @@ class ComplaintDatabase:
 
     
     def update_status(self, serial_no, status):
-        """Update complaint status (for admin)"""
         try:
             conn = self.get_connection()
             cursor = conn.cursor()
@@ -149,3 +148,42 @@ class ComplaintDatabase:
                 return False, "Complaint not found"
         except Exception as e:
             return False, str(e)
+        
+    def alert_admin_more_than_threshold(self, threshold):
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT COUNT(*) FROM complaints 
+                WHERE status = 'pending'
+            ''')
+            
+            pending_count = cursor.fetchone()[0]
+            
+            if pending_count > threshold:
+                cursor.execute('''
+                    SELECT serial_no, email, issue_type, department, priority, 
+                        datetime, location, pincode, zone
+                    FROM complaints 
+                    WHERE status = 'pending'
+                    ORDER BY datetime DESC
+                ''')
+                complaints = cursor.fetchall()
+                conn.close()
+                
+                return {
+                    'should_alert': True,
+                    'pending_count': pending_count,
+                    'complaints': [dict(row) for row in complaints]
+                }, None
+            else:
+                conn.close()
+                return {
+                    'should_alert': False,
+                    'pending_count': pending_count,
+                    'complaints': []
+                }, None
+                
+        except Exception as e:
+            return None, str(e)

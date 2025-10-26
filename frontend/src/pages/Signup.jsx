@@ -13,6 +13,8 @@ export default function Signup() {
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const containerRef = useRef(null);
   const logoRef = useRef(null);
@@ -27,7 +29,6 @@ export default function Signup() {
 
   useEffect(() => {
     const ctx = gsap.context(() => {
-      // Logo animation with pulse
       gsap.from(logoRef.current, {
         scale: 0,
         rotation: -180,
@@ -44,7 +45,6 @@ export default function Signup() {
         ease: 'sine.inOut',
       });
 
-      // Title cascade animation
       gsap.from(titleRef.current, {
         y: -60,
         opacity: 0,
@@ -60,7 +60,6 @@ export default function Signup() {
         delay: 0.6,
       });
 
-      // Stagger badges
       gsap.from(badgeRefs.current, {
         scale: 0,
         opacity: 0,
@@ -70,7 +69,6 @@ export default function Signup() {
         ease: 'back.out(1.7)',
       });
 
-      // Form card entrance
       gsap.from(containerRef.current, {
         scale: 0.85,
         opacity: 0,
@@ -79,7 +77,6 @@ export default function Signup() {
         ease: 'power3.out',
       });
 
-      // Stagger form inputs - only animate the wrapper divs, not the inputs themselves
       inputRefs.current.forEach((input, index) => {
         if (input) {
           gsap.from(input, {
@@ -92,7 +89,6 @@ export default function Signup() {
         }
       });
 
-      // Animate icons
       iconRefs.current.forEach((icon, index) => {
         if (icon) {
           gsap.from(icon, {
@@ -106,7 +102,6 @@ export default function Signup() {
         }
       });
 
-      // Button entrance with bounce
       gsap.from(buttonRef.current, {
         y: 50,
         scale: 0,
@@ -116,7 +111,6 @@ export default function Signup() {
         ease: 'elastic.out(1, 0.6)',
       });
 
-      // Footer slide up
       gsap.from(footerRef.current, {
         y: 30,
         opacity: 0,
@@ -186,14 +180,48 @@ export default function Signup() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    
     if (validateForm()) {
+      setIsSubmitting(true);
+      
       gsap.to(buttonRef.current, {
         scale: 0.95,
         duration: 0.1,
         yoyo: true,
         repeat: 1,
       });
-      console.log('Form submitted:', formData);
+
+      // Store user data in localStorage
+      const userData = {
+        name: formData.name.trim(),
+        email: formData.email.trim().toLowerCase(),
+        phone: formData.phone.trim(),
+        registeredAt: new Date().toISOString()
+      };
+
+      // Store individual fields
+      localStorage.setItem('userName', userData.name);
+      localStorage.setItem('userEmail', userData.email);
+      localStorage.setItem('userPhone', userData.phone);
+      
+      // Store complete user object
+      localStorage.setItem('userData', JSON.stringify(userData));
+      
+      // Store a flag indicating user is registered
+      localStorage.setItem('isRegistered', 'true');
+
+      console.log('User registered successfully:', userData);
+
+      // Show success modal
+      setTimeout(() => {
+        setIsSubmitting(false);
+        setShowSuccessModal(true);
+      }, 1000);
+
+      // Redirect after 2 seconds
+      setTimeout(() => {
+        window.location.href = '/'; // or your dashboard route
+      }, 3000);
     } else {
       gsap.to(formRef.current, {
         x: -10,
@@ -224,7 +252,7 @@ export default function Signup() {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-blue-50 via-white to-blue-100 flex items-center justify-center p-4">
+    <div className="min-h-screen relative overflow-hidden bg-linear-to-br from-blue-50 via-white to-blue-100 flex items-center justify-center p-4">
       {/* Background pattern */}
       <div className="absolute inset-0 opacity-5 pointer-events-none">
         <div className="absolute inset-0" style={{
@@ -235,22 +263,20 @@ export default function Signup() {
       <div className="w-full max-w-md relative z-10">
         {/* Card Container */}
         <div ref={containerRef} className="bg-white rounded-2xl shadow-2xl overflow-hidden">
-          {/* Header Section with Civic Theme */}
-          <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 px-8 py-10 text-white relative overflow-hidden">
+          {/* Header Section */}
+          <div className="bg-linear-to-r from-blue-600 via-blue-700 to-indigo-700 px-8 py-10 text-white relative overflow-hidden">
             <div className="absolute inset-0 opacity-10 pointer-events-none">
               <div className="absolute top-4 right-4 w-32 h-32 border-4 border-white rounded-full" />
               <div className="absolute bottom-4 left-4 w-24 h-24 border-4 border-white rounded-full" />
             </div>
             
             <div className="relative text-center space-y-4">
-              {/* Logo/Icon */}
               <div ref={logoRef} className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-full shadow-lg">
                 <svg className="w-12 h-12 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
               </div>
 
-              {/* Title */}
               <div className="space-y-2">
                 <h1 ref={titleRef} className="text-3xl font-bold tracking-tight">
                   Civic Report Portal
@@ -260,19 +286,18 @@ export default function Signup() {
                 </p>
               </div>
 
-              {/* Feature badges */}
               <div className="flex items-center justify-center gap-3 pt-2">
                 <div ref={(el) => (badgeRefs.current[0] = el)} className="flex items-center gap-1.5 bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium">
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  AI-Powered
+                  Secure Platform
                 </div>
                 <div ref={(el) => (badgeRefs.current[1] = el)} className="flex items-center gap-1.5 bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium">
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
                   </svg>
-                  Real-time
+                  Real-time Updates
                 </div>
               </div>
             </div>
@@ -506,26 +531,39 @@ export default function Signup() {
             <button
               ref={buttonRef}
               type="submit"
-              className="relative w-full mt-6 overflow-hidden group"
+              disabled={isSubmitting}
+              className="relative w-full mt-6 overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-lg transition-all duration-300 group-hover:from-blue-700 group-hover:to-indigo-800" />
-              <div className="absolute inset-0 bg-gradient-to-r from-indigo-700 to-blue-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="absolute inset-0 bg-linear-to-r from-blue-600 to-indigo-700 rounded-lg transition-all duration-300 group-hover:from-blue-700 group-hover:to-indigo-800" />
+              <div className="absolute inset-0 bg-linear-to-r from-indigo-700 to-blue-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <span className="relative flex items-center justify-center gap-2 py-4 text-white font-bold text-base tracking-wide">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                </svg>
-                Create Citizen Account
+                {isSubmitting ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Creating Account...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
+                    Create Citizen Account
+                  </>
+                )}
               </span>
             </button>
 
             {/* Info Box */}
             <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-start gap-3">
-                <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                 </svg>
                 <p className="text-xs text-blue-800 leading-relaxed">
-                  Your reports help improve municipal services. Once registered, you can submit issues with photos, track their status, and receive automated updates.
+                  Your data is securely stored locally. Once registered, you can submit issues with photos, track their status, and receive automated updates.
                 </p>
               </div>
             </div>
@@ -550,6 +588,28 @@ export default function Signup() {
           </p>
         </div>
       </div>
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full border-t-4 border-green-500">
+            <div className="text-center">
+              <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Registration Successful!</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Welcome, {formData.name}! Your account has been created.
+              </p>
+              <p className="text-xs text-gray-500">
+                Redirecting to dashboard...
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

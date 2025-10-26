@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { useState, useRef, useEffect } from 'react';
 import { gsap } from 'gsap';
 
@@ -7,15 +8,23 @@ export default function Home() {
     description: '',
     location: '',
     zone: '',
-    landmark: ''
+    landmark: '',
+    pincode: ''
   });
 
   const [imagePreview, setImagePreview] = useState(null);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [activeTab, setActiveTab] = useState('submit');
+  const [userComplaints, setUserComplaints] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [complaintId, setComplaintId] = useState(null);
 
   const formRef = useRef(null);
   const sidebarRef = useRef(null);
+
+  // Get user email from localStorage
+  const userEmail = localStorage.getItem('userEmail') || '';
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -39,6 +48,32 @@ export default function Home() {
     return () => ctx.revert();
   }, []);
 
+  // Fetch user complaints when switching to track tab
+  useEffect(() => {
+    if (activeTab === 'track' && userEmail) {
+      fetchUserComplaints();
+    }
+  }, [activeTab, userEmail]);
+
+  const fetchUserComplaints = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`http://localhost:8000/api/complaints/${userEmail}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setUserComplaints(data.complaints);
+      } else {
+        setError('Failed to fetch complaints');
+      }
+    } catch (err) {
+      setError('Error fetching complaints');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -51,28 +86,115 @@ export default function Home() {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setShowSubmitModal(true);
-    console.log('Report submitted:', formData);
-    setTimeout(() => {
-      setShowSubmitModal(false);
-      setFormData({
-        image: null,
-        description: '',
-        location: '',
-        zone: '',
-        landmark: ''
-      });
-      setImagePreview(null);
-    }, 3000);
+    
+    if (!userEmail) {
+      alert('Please set your email in localStorage first');
+      return;
+    }
+
+    if (!formData.image) {
+      alert('Please upload an image');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      // Convert image to base64
+      const reader = new FileReader();
+      reader.readAsDataURL(formData.image);
+
+      reader.onload = async () => {
+        const base64Image = reader.result.split(',')[1]; // Remove data URL prefix
+
+        const payload = {
+          email: userEmail,
+          image_base64: base64Image,
+          description: formData.description,
+          location: formData.landmark,
+          pincode: formData.pincode,
+          zone: formData.zone
+        };
+
+        try {
+          const response = await fetch('http://localhost:8000/analyze', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+          });
+
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            setComplaintId(data.complaint_id);
+            setShowSubmitModal(true);
+            
+            // Reset form after 2 seconds
+            setTimeout(() => {
+              setFormData({
+                image: null,
+                description: '',
+                location: '',
+                zone: '',
+                landmark: '',
+                pincode: ''
+              });
+              setImagePreview(null);
+            }, 2000);
+          } else {
+            setError(data.error || 'Failed to submit complaint');
+            alert('Error: ' + (data.error || 'Unknown error'));
+          }
+        } catch (err) {
+          setError('Network error. Please try again.');
+          alert('Error: ' + err.message);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      reader.onerror = () => {
+        setError('Failed to read image');
+        setLoading(false);
+      };
+    } catch (err) {
+      setError('Error processing image');
+      setLoading(false);
+    }
   };
 
-  const mockReports = [
-    { id: 'CR2401', type: 'Pothole', status: 'In Progress', priority: 'High', date: '25-10-2025', location: 'Main St & 5th Ave', dept: 'Roads' },
-    { id: 'CR2398', type: 'Streetlight', status: 'Resolved', priority: 'Medium', date: '23-10-2025', location: 'Central Park', dept: 'Electrical' },
-    { id: 'CR2395', type: 'Garbage', status: 'Under Review', priority: 'Low', date: '22-10-2025', location: 'Hospital Zone', dept: 'Sanitation' }
-  ];
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-IN', { 
+      day: '2-digit', 
+      month: '2-digit', 
+      year: 'numeric' 
+    });
+  };
+
+  const getStatusColor = (status) => {
+    switch(status) {
+      case 'resolved':
+        return 'bg-green-100 text-green-800';
+      case 'in_progress':
+        return 'bg-blue-100 text-blue-800';
+      case 'rejected':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-amber-100 text-amber-800';
+    }
+  };
+
+  const getPriorityColor = (priority) => {
+    if (priority >= 8) return 'bg-red-100 text-red-700';
+    if (priority >= 5) return 'bg-amber-100 text-amber-700';
+    return 'bg-green-100 text-green-700';
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -99,11 +221,11 @@ export default function Home() {
               </button>
               <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2">
                 <div className="text-right">
-                  <div className="text-sm font-semibold text-white">John Citizen</div>
-                  <div className="text-xs text-blue-200">ID: CZ10245</div>
+                  <div className="text-sm font-semibold text-white">{userEmail || 'Guest'}</div>
+                  <div className="text-xs text-blue-200">Citizen</div>
                 </div>
                 <div className="w-10 h-10 bg-linear-to-br from-blue-500 to-indigo-600 text-white rounded-lg flex items-center justify-center font-bold shadow-lg">
-                  JC
+                  {userEmail ? userEmail[0].toUpperCase() : 'G'}
                 </div>
               </div>
             </div>
@@ -173,6 +295,12 @@ export default function Home() {
                     </div>
                   </div>
 
+                  {error && (
+                    <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
+                      <p className="text-sm text-red-800">{error}</p>
+                    </div>
+                  )}
+
                   {/* Image Upload */}
                   <div>
                     <label className="block text-sm font-semibold text-gray-800 mb-2">
@@ -225,31 +353,23 @@ export default function Home() {
                     <label className="block text-sm font-semibold text-gray-800 mb-2">
                       Zone Category <span className="text-red-600">*</span>
                     </label>
-                    <div className="relative">
-                      <select
-                        value={formData.zone}
-                        onChange={(e) => setFormData({ ...formData, zone: e.target.value })}
-                        required
-                        className="w-full px-4 py-3 border-2 border-gray-400 rounded-lg focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-all duration-300 bg-white appearance-none cursor-pointer"
-                        // style={{ boxSizing: 'border-box' }}
-                      >
-                        <option value="">-- Select Zone Category --</option>
-                        <option value="residential">Residential</option>
-                        <option value="commercial">Commercial / Business</option>
-                        <option value="educational">Educational</option>
-                        <option value="healthcare">Healthcare / Emergency</option>
-                        <option value="industrial">Industrial / Manufacturing</option>
-                        <option value="government">Government / Administrative</option>
-                        <option value="transport">Transport / Traffic Corridors</option>
-                        <option value="recreational">Recreational / Public Spaces</option>
-                        <option value="tourist">Tourist / Cultural</option>
-                      </select>
-                      <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
-                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                    </div>
+                    <select
+                      value={formData.zone}
+                      onChange={(e) => setFormData({ ...formData, zone: e.target.value })}
+                      required
+                      className="w-full px-4 py-3 border border-gray-400 rounded-lg focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-all duration-300 bg-white cursor-pointer"
+                    >
+                      <option value="">-- Select Zone Category --</option>
+                      <option value="Residential">Residential</option>
+                      <option value="Commercial / Business">Commercial / Business</option>
+                      <option value="Educational">Educational</option>
+                      <option value="Healthcare / Emergency">Healthcare / Emergency</option>
+                      <option value="Industrial / Manufacturing">Industrial / Manufacturing</option>
+                      <option value="Government / Administrative">Government / Administrative</option>
+                      <option value="Transport / Traffic Corridors">Transport / Traffic Corridors</option>
+                      <option value="Recreational / Public Spaces">Recreational / Public Spaces</option>
+                      <option value="Tourist / Cultural">Tourist / Cultural</option>
+                    </select>
                   </div>
 
                   {/* Landmark */}
@@ -269,23 +389,26 @@ export default function Home() {
                         value={formData.landmark}
                         onChange={(e) => setFormData({ ...formData, landmark: e.target.value })}
                         required
-                        className="w-full pl-11 pr-4 py-3 border-2 border-gray-400 rounded-lg focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-all duration-300"
+                        className="w-full pl-11 pr-4 py-3 border border-gray-400 rounded-lg focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-all duration-300"
                         placeholder="E.g., Near City Mall, Main St & 5th Ave"
                       />
                     </div>
                   </div>
 
-                  {/* Additional Location */}
+                  {/* Pincode */}
                   <div>
                     <label className="block text-sm font-semibold text-gray-800 mb-2">
-                      Additional Location Details (Optional)
+                      Pincode <span className="text-red-600">*</span>
                     </label>
                     <input
                       type="text"
-                      value={formData.location}
-                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                      className="w-full px-4 py-3 border-2 border-gray-400 rounded-lg focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-all duration-300"
-                      placeholder="Floor number, room number, or specific directions"
+                      value={formData.pincode}
+                      onChange={(e) => setFormData({ ...formData, pincode: e.target.value })}
+                      pattern="[0-9]{6}"
+                      maxLength="6"
+                      required
+                      className="w-full px-4 py-3 border border-gray-400 rounded-lg focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-all duration-300"
+                      placeholder="6-digit pincode"
                     />
                   </div>
 
@@ -299,7 +422,7 @@ export default function Home() {
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       rows={4}
                       required
-                      className="w-full px-4 py-3 border-2 border-gray-400 rounded-lg focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-all duration-300 resize-none"
+                      className="w-full px-4 py-3 border border-gray-400 rounded-lg focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-all duration-300 resize-none"
                       placeholder="Provide detailed description of the issue"
                     />
                   </div>
@@ -323,24 +446,38 @@ export default function Home() {
                   <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
                     <button
                       type="submit"
-                      className="flex-1 relative overflow-hidden group"
+                      disabled={loading}
+                      className="flex-1 relative overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <div className="absolute inset-0 bg-linear-to-r from-blue-600 to-indigo-700 rounded-lg" />
                       <div className="absolute inset-0 bg-linear-to-r from-indigo-700 to-blue-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                       <span className="relative flex items-center justify-center gap-2 py-3 text-white font-semibold">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Submit Complaint
+                        {loading ? (
+                          <>
+                            <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Submit Complaint
+                          </>
+                        )}
                       </span>
                     </button>
                     <button
                       type="button"
                       onClick={() => {
-                        setFormData({ image: null, description: '', location: '', zone: '', landmark: '' });
+                        setFormData({ image: null, description: '', location: '', zone: '', landmark: '', pincode: '' });
                         setImagePreview(null);
+                        setError('');
                       }}
-                      className="px-8 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-colors border-2 border-gray-300"
+                      className="px-8 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-colors border border-gray-300"
                     >
                       Reset
                     </button>
@@ -350,59 +487,71 @@ export default function Home() {
                 <div className="p-6 space-y-4">
                   <div className="flex items-center justify-between pb-4 border-b border-gray-200">
                     <h3 className="text-lg font-bold text-gray-900">Your Complaints</h3>
-                    <div className="flex gap-2">
-                      <button className="px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
-                        All (12)
-                      </button>
-                      <button className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-                        Active (6)
-                      </button>
-                    </div>
+                    <button 
+                      onClick={fetchUserComplaints}
+                      className="px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors flex items-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Refresh
+                    </button>
                   </div>
 
-                  <div className="space-y-3">
-                    {mockReports.map((report) => (
-                      <div key={report.id} className="bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg p-4 transition-all duration-300 hover:shadow-md">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 bg-linear-to-br from-blue-600 to-indigo-700 rounded-lg flex items-center justify-center text-white font-bold shadow-md">
-                              {report.id.slice(-2)}
+                  {loading ? (
+                    <div className="text-center py-8">
+                      <svg className="animate-spin h-8 w-8 mx-auto text-blue-600" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <p className="mt-2 text-gray-600">Loading complaints...</p>
+                    </div>
+                  ) : userComplaints.length === 0 ? (
+                    <div className="text-center py-8">
+                      <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <p className="text-gray-600">No complaints found</p>
+                      <p className="text-sm text-gray-500 mt-1">Submit your first complaint to get started</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {userComplaints.map((report) => (
+                        <div key={report.serial_no} className="bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg p-4 transition-all duration-300 hover:shadow-md">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-12 h-12 bg-linear-to-br from-blue-600 to-indigo-700 rounded-lg flex items-center justify-center text-white font-bold shadow-md">
+                                {report.serial_no}
+                              </div>
+                              <div>
+                                <h4 className="font-bold text-gray-900">{report.issue_type || 'Pending Analysis'}</h4>
+                                <p className="text-sm text-gray-600">{report.location}</p>
+                                <p className="text-xs text-gray-500 mt-1">Dept: {report.department || 'Not Assigned'}</p>
+                              </div>
                             </div>
-                            <div>
-                              <h4 className="font-bold text-gray-900">{report.type}</h4>
-                              <p className="text-sm text-gray-600">{report.location}</p>
-                              <p className="text-xs text-gray-500 mt-1">Dept: {report.dept}</p>
+                            {report.priority && (
+                              <span className={`px-3 py-1 text-xs font-bold rounded-full ${getPriorityColor(report.priority)}`}>
+                                Priority: {report.priority}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span className={`px-3 py-1 text-xs font-semibold rounded-lg ${getStatusColor(report.status)}`}>
+                                {report.status.replace('_', ' ').toUpperCase()}
+                              </span>
+                              <span className="text-sm text-gray-500">{formatDate(report.datetime)}</span>
+                              {report.confidence && (
+                                <span className="text-xs text-gray-500">
+                                  Confidence: {(report.confidence * 100).toFixed(1)}%
+                                </span>
+                              )}
                             </div>
                           </div>
-                          <span className={`px-3 py-1 text-xs font-bold rounded-full ${
-                            report.priority === 'High' ? 'bg-red-100 text-red-700' :
-                            report.priority === 'Medium' ? 'bg-amber-100 text-amber-700' :
-                            'bg-green-100 text-green-700'
-                          }`}>
-                            {report.priority}
-                          </span>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <span className={`px-3 py-1 text-xs font-semibold rounded-lg ${
-                              report.status === 'Resolved' ? 'bg-green-100 text-green-800' :
-                              report.status === 'In Progress' ? 'bg-blue-100 text-blue-800' :
-                              'bg-amber-100 text-amber-800'
-                            }`}>
-                              {report.status}
-                            </span>
-                            <span className="text-sm text-gray-500">{report.date}</span>
-                          </div>
-                          <button className="text-blue-700 hover:text-blue-900 font-semibold text-sm flex items-center gap-1 group">
-                            View Details
-                            <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -443,7 +592,7 @@ export default function Home() {
             {/* Important Notice */}
             <div className="bg-linear-to-br from-amber-50 to-orange-50 border-l-4 border-amber-500 rounded-r-xl shadow-md p-5">
               <div className="flex items-start gap-3">
-                <svg className="w-6 h-6 text-amber-600 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
                 <div>
@@ -513,17 +662,20 @@ export default function Home() {
               <h3 className="text-2xl font-bold text-gray-900 mb-2">Complaint Registered!</h3>
               <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
                 <p className="text-sm text-green-900 font-semibold">
-                  Complaint ID: <span className="text-green-700">CR{Math.floor(Math.random() * 10000)}</span>
+                  Complaint ID: <span className="text-green-700">CR{complaintId}</span>
                 </p>
               </div>
               <p className="text-sm text-gray-600 mb-6">
                 Your complaint has been successfully registered and forwarded to the concerned department. You will receive updates via SMS and email.
               </p>
               <button
-                onClick={() => setShowSubmitModal(false)}
+                onClick={() => {
+                  setShowSubmitModal(false);
+                  setActiveTab('track');
+                }}
                 className="w-full px-6 py-3 bg-linear-to-r from-blue-600 to-indigo-700 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-800 transition-all duration-300 shadow-md hover:shadow-lg"
               >
-                Close
+                View My Complaints
               </button>
             </div>
           </div>
