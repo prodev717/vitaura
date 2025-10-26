@@ -25,10 +25,16 @@
       padding: 25px;
       border-radius: 12px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      width: 400px;
+      width: 450px;
       display: flex;
       flex-direction: column;
       gap: 15px;
+    }
+
+    label {
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: -8px;
     }
 
     input, textarea, select, button {
@@ -37,6 +43,13 @@
       border: 1px solid #ccc;
       border-radius: 8px;
       width: 100%;
+      box-sizing: border-box;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
     }
 
     button {
@@ -46,10 +59,16 @@
       border: none;
       cursor: pointer;
       transition: background 0.2s ease;
+      padding: 12px;
     }
 
     button:hover {
       background: #1e40af;
+    }
+
+    button:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
     }
 
     pre {
@@ -57,15 +76,50 @@
       color: #d1d5db;
       padding: 15px;
       border-radius: 10px;
-      width: 400px;
+      width: 450px;
       margin-top: 25px;
       overflow-x: auto;
+      max-height: 400px;
     }
 
     img.preview {
       width: 100%;
+      max-width: 450px;
       border-radius: 8px;
-      margin-top: 5px;
+      margin-top: 15px;
+      border: 2px solid #e5e7eb;
+    }
+
+    .success {
+      background: #10b981;
+      color: white;
+      padding: 15px;
+      border-radius: 8px;
+      width: 450px;
+      margin-top: 15px;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    .error {
+      background: #ef4444;
+      color: white;
+      padding: 15px;
+      border-radius: 8px;
+      width: 450px;
+      margin-top: 15px;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .required {
+      color: #ef4444;
     }
   </style>
 </head>
@@ -75,51 +129,96 @@
   <p>Upload an image and describe the issue.</p>
 
   <form id="issueForm">
-    <label>Image:</label>
-    <input type="file" id="imageInput" accept="image/*" required />
+    <div class="field-group">
+      <label>Email <span class="required">*</span></label>
+      <input type="email" id="email" placeholder="your.email@example.com" required />
+    </div>
 
-    <label>Description:</label>
-    <textarea id="description" rows="3" placeholder="Describe the issue..." required></textarea>
+    <div class="field-group">
+      <label>Image <span class="required">*</span></label>
+      <input type="file" id="imageInput" accept="image/*" required />
+    </div>
 
-    <label>Location Type:</label>
-    <select id="location" required>
-      <option value="">Select Location Type</option>
-      <option>Residential</option>
-      <option>Commercial / Business</option>
-      <option>Educational</option>
-      <option>Healthcare / Emergency</option>
-      <option>Industrial / Manufacturing</option>
-      <option>Government / Administrative</option>
-      <option>Transport / Traffic Corridors</option>
-      <option>Recreational / Public Spaces</option>
-      <option>Tourist / Cultural</option>
-    </select>
+    <div class="field-group">
+      <label>Description <span class="required">*</span></label>
+      <textarea id="description" rows="3" placeholder="Describe the issue in detail..." required></textarea>
+    </div>
 
-    <button type="submit">Analyze Issue</button>
+    <div class="field-group">
+      <label>Location/Landmark <span class="required">*</span></label>
+      <input type="text" id="location" placeholder="E.g., Near City Mall, Main St" required />
+    </div>
+
+    <div class="field-group">
+      <label>Pincode <span class="required">*</span></label>
+      <input type="text" id="pincode" placeholder="6-digit pincode" pattern="[0-9]{6}" maxlength="6" required />
+    </div>
+
+    <div class="field-group">
+      <label>Zone Category <span class="required">*</span></label>
+      <select id="zone" required>
+        <option value="">-- Select Zone --</option>
+        <option value="Residential">Residential</option>
+        <option value="Commercial / Business">Commercial / Business</option>
+        <option value="Educational">Educational</option>
+        <option value="Healthcare / Emergency">Healthcare / Emergency</option>
+        <option value="Industrial / Manufacturing">Industrial / Manufacturing</option>
+        <option value="Government / Administrative">Government / Administrative</option>
+        <option value="Transport / Traffic Corridors">Transport / Traffic Corridors</option>
+        <option value="Recreational / Public Spaces">Recreational / Public Spaces</option>
+        <option value="Tourist / Cultural">Tourist / Cultural</option>
+      </select>
+    </div>
+
+    <button type="submit" id="submitBtn">Analyze Issue</button>
   </form>
 
   <img id="preview" class="preview" style="display:none;" />
+  
+  <div id="messageBox"></div>
   <pre id="responseBox"></pre>
 
   <script>
     const form = document.getElementById('issueForm');
     const preview = document.getElementById('preview');
     const responseBox = document.getElementById('responseBox');
+    const messageBox = document.getElementById('messageBox');
+    const submitBtn = document.getElementById('submitBtn');
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
 
+      // Get form values
+      const email = document.getElementById('email').value.trim();
       const fileInput = document.getElementById('imageInput');
       const file = fileInput.files[0];
-      const description = document.getElementById('description').value;
-      const location = document.getElementById('location').value;
+      const description = document.getElementById('description').value.trim();
+      const location = document.getElementById('location').value.trim();
+      const pincode = document.getElementById('pincode').value.trim();
+      const zone = document.getElementById('zone').value;
 
-      if (!file) return alert("Please upload an image.");
+      // Validation
+      if (!file) {
+        alert("Please upload an image.");
+        return;
+      }
+
+      if (pincode.length !== 6 || !/^\d{6}$/.test(pincode)) {
+        alert("Please enter a valid 6-digit pincode.");
+        return;
+      }
+
+      // Disable submit button
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Processing...";
 
       // Preview image
-      const reader = new FileReader();
-      reader.onload = () => { preview.src = reader.result; preview.style.display = "block"; };
-      reader.readAsDataURL(file);
+      const previewReader = new FileReader();
+      previewReader.onload = () => { 
+        preview.src = previewReader.result; 
+        preview.style.display = "block"; 
+      };
+      previewReader.readAsDataURL(file);
 
       // Convert image to base64
       const base64String = await new Promise((resolve, reject) => {
@@ -131,11 +230,15 @@
 
       // Prepare request payload
       const payload = {
+        email: email,
         image_base64: base64String,
-        description,
-        location
+        description: description,
+        location: location,
+        pincode: pincode,
+        zone: zone
       };
 
+      messageBox.innerHTML = "";
       responseBox.textContent = "Processing... ⏳";
 
       try {
@@ -146,9 +249,56 @@
         });
 
         const data = await res.json();
-        responseBox.textContent = JSON.stringify(data, null, 2);
+
+        if (data.success) {
+          // Show success message
+          messageBox.innerHTML = `<div class="success">
+            ✅ Complaint submitted successfully!<br>
+            Complaint ID: ${data.complaint_id}<br>
+            Status: ${data.status}
+          </div>`;
+
+          // Show detailed response
+          responseBox.textContent = JSON.stringify(data, null, 2);
+
+          // Reset form after 2 seconds
+          setTimeout(() => {
+            form.reset();
+            preview.style.display = "none";
+          }, 2000);
+        } else {
+          // Show error message
+          messageBox.innerHTML = `<div class="error">
+            ❌ Error: ${data.error || 'Unknown error occurred'}
+          </div>`;
+          responseBox.textContent = JSON.stringify(data, null, 2);
+        }
       } catch (err) {
+        messageBox.innerHTML = `<div class="error">
+          ❌ Network Error: ${err.message}
+        </div>`;
         responseBox.textContent = "Error: " + err.message;
+      } finally {
+        // Re-enable submit button
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Analyze Issue";
+      }
+    });
+
+    // Save email to localStorage on blur
+    document.getElementById('email').addEventListener('blur', (e) => {
+      const email = e.target.value.trim();
+      if (email) {
+        localStorage.setItem('userEmail', email);
+        console.log('Email saved to localStorage:', email);
+      }
+    });
+
+    // Load email from localStorage on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedEmail = localStorage.getItem('userEmail');
+      if (savedEmail) {
+        document.getElementById('email').value = savedEmail;
       }
     });
   </script>
