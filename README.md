@@ -71,11 +71,19 @@ This project aims to drastically reduce manual triage time and improve citizen s
 
 ---
 
+## 👥 Team Members
+
+| Name                 | GitHub Profile                                                   |
+| -------------------- | ---------------------------------------------------------------- |
+| **Ganesh M**         | [github.com/prodev717](https://github.com/prodev717)             |
+| **Muhammad Sajid Y** | [github.com/muhammadsajidy](https://github.com/muhammadsajidy)   |
+| **V K Rohith**       | [github.com/RohiVK](https://github.com/RohiVK)                   |
+
+---
+
 ## Team & Acknowledgment
 
 Developed as part of **VITAURA Hackathon 2025 (VIT-AP University)** under the theme *Smart City Automation*.
 Team members designed and implemented this solution to modernize civic issue management using AI-driven automation.
 
 ---
-
-Would you like me to add a short “API endpoints” section (example routes for image upload, AI classification, and report retrieval)? It makes the README more developer-friendly for repo reviewers.
