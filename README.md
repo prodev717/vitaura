@@ -1,8 +1,8 @@
 # AI Civic Agent for City Issues
 
-**Hackathon:** VITAURA 2025 – VIT-AP University
-**Date:** 26th October 2025
-**Category:** Smart City Automation
+**Hackathon:** VITAURA 2025 – VIT-AP University  
+**Date:** 26th October 2025  
+**Category:** Smart City Automation  
 
 ---
 
@@ -87,4 +87,5 @@ Developed as part of **VITAURA Hackathon 2025 (VIT-AP University)** under the th
 Team members designed and implemented this solution to modernize civic issue management using AI-driven automation.
 
 ---
+
 
